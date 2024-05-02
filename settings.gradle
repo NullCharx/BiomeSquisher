@@ -1,69 +1,33 @@
 pluginManagement {
-	repositories {
+    repositories {
         gradlePluginPortal()
-		maven {
-			name = 'Fabric'
-			url = 'https://maven.fabricmc.net/'
-		}
         maven {
-            name = 'NeoForged'
-            url = 'https://maven.neoforged.net/releases'
+            name = 'Fabric'
+            url = 'https://maven.fabricmc.net/'
         }
         maven {
-            name = "Luke's Maven"
-            url = 'https://maven.lukebemish.dev/releases/'
+            name = 'NeoForge'
+            url = 'https://maven.neoforged.net/releases/'
         }
         maven {
-            name = 'Architectury'
-            url "https://maven.architectury.dev/"
+            name = 'Forge'
+            url = 'https://maven.minecraftforge.net/'
         }
-	}
+        maven {
+            name = 'Sponge Snapshots'
+            url = 'https://repo.spongepowered.org/repository/maven-public/'
+        }
+
+    }
 }
 
 plugins {
-    id 'com.gradle.enterprise' version '3.15'
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
 }
 
-gradleEnterprise {
-    if (System.getenv('CI') != null) {
-        buildScan {
-            publishAlways()
-            termsOfServiceUrl = "https://gradle.com/terms-of-service"
-            termsOfServiceAgree = "yes"
-        }
-    }
-}
-
-rootProject.name = "biomesquisher"
-
-include 'common', 'fabric', 'neoforge'
-
-buildCache {
-    if (providers.gradleProperty('buildCacheUrl').orNull) {
-        remote(HttpBuildCache) {
-            url = providers.gradleProperty('buildCacheUrl').orNull
-            credentials {
-                username = providers.gradleProperty('buildCacheUser').orNull
-                password = providers.gradleProperty('buildCachePassword').orNull
-            }
-            if (providers.gradleProperty('buildCachePush').orNull) {
-                push = true
-            } else {
-                push = false
-            }
-        }
-    } else if (System.getenv('BUILD_CACHE_URL')) {
-        remote(HttpBuildCache) {
-            url = System.getenv('BUILD_CACHE_URL')
-            credentials {
-                username = System.getenv('BUILD_CACHE_USER')
-                password = System.getenv('BUILD_CACHE_PASSWORD')
-            }
-            if (System.getenv('BUILD_CACHE_PUSH') || System.getenv('CI')) {
-                push = true
-            } else {
-                push = false
-            }
-        }
-    }
-}
+// This should match the folder name of the project, or else IDEA may complain (see https://youtrack.jetbrains.com/issue/IDEA-317606)
+rootProject.name = 'BiomeSquisher'
+include("common")
+include("fabric")
+include("forge")
+include("neoforge")

@@ -1,24 +1,44 @@
-loom {
-    runs.configureEach {
-        ideConfigGenerated = false
+plugins {
+    id 'idea'
+    id 'java'
+    id 'maven-publish'
+    id 'org.spongepowered.gradle.vanilla' version '0.2.1-SNAPSHOT'
+}
+base {
+    archivesName = "${mod_name}-common-${minecraft_version}"
+}
+minecraft {
+    version(minecraft_version)
+    if(file("src/main/resources/${mod_id}.accesswidener").exists()){
+        accessWideners(file("src/main/resources/${mod_id}.accesswidener"))
     }
 }
 
-configurations {
-    compileOnly.extendsFrom modsDotGroovy
-    testCompileOnly.extendsFrom modsDotGroovy
-}
-
 dependencies {
-    modCompileOnly libs.fabric.loader
-
-    annotationProcessor libs.mixinextras.common
-    implementation libs.mixinextras.common
-
-    testImplementation sourceSets.main.output
+     compileOnly group:'org.spongepowered', name:'mixin', version:'0.8.5'
+     implementation group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.1'
+    //Jackson dependency
+    dependencies {
+        implementation 'com.fasterxml.jackson.core:jackson-core:2.17.0'
+        implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
+        implementation 'com.fasterxml.jackson.core:jackson-annotations:2.17.0'
+    }
+    dependencies {
+        implementation 'io.github.llamalad7:mixinextras-common:0.3.5'
+        implementation 'ar.com.hjg:pngj:2.1.0'
+    }
 }
 
-import net.fabricmc.loom.task.AbstractRemapJarTask
-tasks.withType(AbstractRemapJarTask).each {
-    it.targetNamespace = "named"
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId base.archivesName.get()
+            from components.java
+        }
+    }
+    repositories {
+        maven {
+            url "file://" + System.getenv("local_maven")
+        }
+    }
 }

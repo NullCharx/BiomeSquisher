@@ -1,177 +1,93 @@
 plugins {
-    alias libs.plugins.mdg.plugin
-    alias libs.plugins.architectury.loom apply false
-    alias libs.plugins.managedversioning
-    alias libs.plugins.nexuspublish
+    // Required for NeoGradle
+    id "org.jetbrains.gradle.plugin.idea-ext" version "1.1.7"
 }
 
-managedVersioning {
-    versionFile.set rootProject.file('version.properties')
-    metadataVersion.set libs.versions.minecraft
-    if (rootProject.releasetype != 'release') {
-        suffixParts.add "${rootProject.releasetype}"
-    }
-    if (System.getenv('PR_NUMBER')) {
-        suffixParts.add "pr${System.getenv('PR_NUMBER')}"
-    } else if (System.getenv('SNAPSHOT_MAVEN_URL')) {
-        suffixParts.add 'SNAPSHOT'
-    }
-}
-
-managedVersioning.apply()
-
-println "Building: ${rootProject.version}"
-
-subprojects { p ->
-    apply plugin: 'java-library'
-    apply plugin: 'maven-publish'
-    apply plugin: 'signing'
-    apply plugin: 'dev.architectury.loom'
-
-    group = rootProject.group
-    version = rootProject.version
-    base.archivesName = "${rootProject.name}-${p.name.toLowerCase(Locale.ROOT)}-${libs.versions.minecraft.get()}"
+subprojects {
+    apply plugin: 'java'
 
     java.toolchain.languageVersion = JavaLanguageVersion.of(17)
     java.withSourcesJar()
     java.withJavadocJar()
-
-    javadoc {
-        include "**/api/**"
-    }
-
+        
     jar {
+        from(rootProject.file("LICENSE")) {
+            rename { "${it}_${mod_name}" }
+        }
         manifest {
             attributes([
-                'Specification-Title'     : rootProject.modname,
-                'Specification-Vendor'    : rootProject.modauthor,
-                'Specification-Version'   : rootProject.version,
-                'Implementation-Title'    : "$modname - ${project.name}",
-                'Implementation-Version'  : rootProject.version,
-                'Implementation-Vendor'   : rootProject.modauthor,
-                'Implementation-Commit-Time': managedVersioning.timestamp.get(),
-                'Implementation-Commit': managedVersioning.hash.get(),
-                'Build-On-Minecraft'      : libs.versions.minecraft.get(),
+                'Specification-Title'     : mod_name,
+                'Specification-Vendor'    : mod_author,
+                'Specification-Version'   : project.jar.archiveVersion,
+                'Implementation-Title'    : project.name,
+                'Implementation-Version'  : project.jar.archiveVersion,
+                'Implementation-Vendor'   : mod_author,
+                'Implementation-Timestamp': new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
+                'Timestamp'               : System.currentTimeMillis(),
+                'Built-On-Java'           : "${System.getProperty('java.vm.version')} (${System.getProperty('java.vm.vendor')})",
+                'Built-On-Minecraft'      : minecraft_version
             ])
         }
+    }
 
-        from("LICENSE") {
-            rename { "${it}-${rootProject.name}"}
+    sourcesJar {
+        from(rootProject.file("LICENSE")) {
+            rename { "${it}_${mod_name}" }
         }
     }
 
     repositories {
         mavenCentral()
         maven {
-            name = 'ParchmentMC'
-            url = 'https://maven.parchmentmc.org'
+            name = 'Sponge / Mixin'
+            url = 'https://repo.spongepowered.org/repository/maven-public/'
         }
         maven {
-            name = 'NeoForged'
-            url = 'https://maven.neoforged.net/releases'
+            name = 'BlameJared Maven (JEI / CraftTweaker / Bookshelf)'
+            url = 'https://maven.blamejared.com'
         }
     }
 
-    dependencies {
-        minecraft libs.minecraft
-        mappings loom.layered() {
-            officialMojangMappings()
-            parchment("org.parchmentmc.data:parchment-${libs.versions.parchment.minecraft.get()}:${libs.versions.parchment.mappings.get()}@zip")
-        }
-
-        compileOnly libs.jetbrains.annotations
-        testCompileOnly libs.jetbrains.annotations
-        implementation libs.pngj
-        compileOnly libs.autoservice
-        annotationProcessor libs.autoservice
-        testCompileOnly libs.autoservice
-        testAnnotationProcessor libs.autoservice
+    tasks.withType(JavaCompile).configureEach {
+    
+        it.options.encoding = 'UTF-8'
+        it.options.getRelease().set(17)
     }
 
-    publishing {
-        publications {
-            mavenJava(MavenPublication) {
-                from components.java
-                artifactId base.archivesName.get()
+    processResources {
+        def expandProps = [
+                "version": version,
+                "group": project.group, //Else we target the task's group.
+                "minecraft_version": minecraft_version,
+                "forge_version": forge_version,
+                "forge_loader_version_range": forge_loader_version_range,
+                "forge_version_range": forge_version_range,
+                "minecraft_version_range": minecraft_version_range,
+                "fabric_version": fabric_version,
+                "fabric_loader_version": fabric_loader_version,
+                "mod_name": mod_name,
+                "mod_author": mod_author,
+                "mod_id": mod_id,
+                "license": license,
+                "description": project.description,
+                "neoforge_version": neoforge_version,
+                "neoforge_loader_version_range": neoforge_loader_version_range,
+                "credits": credits,
+                "mapping_version": mapping_version,
+                "mapping_channel": mapping_channel,
+        ]
 
-                pom {
-                    name = "${rootProject.modname} - ${project.name}"
-                    packaging = 'jar'
-                    description = 'Modding library for the game "Minecraft" which allows for injection of new biomes into the biome parameter space by "squishing" existing biomes'
-                    url = 'https://github.com/lukebemishprojects/BiomeSquisher'
-                    inceptionYear = '2023'
-
-                    licenses {
-                        license {
-                            name = '3-Clause BSD License'
-                            url = 'https://opensource.org/license/bsd-3-clause/'
-                        }
-                    }
-                    developers {
-                        developer {
-                            id = 'lukebemish'
-                            name = 'Luke Bemish'
-                            email = 'lukebemish@lukebemish.dev'
-                            url = 'https://github.com/lukebemish/'
-                        }
-                    }
-                    scm {
-                        connection='scm:git:git://github.com/lukebemishprojects/BiomeSquisher.git'
-                        developerConnection='scm:git:ssh://github.com/lukebemishprojects/BiomeSquisher.git'
-                        url='https://github.com/lukebemishprojects/BiomeSquisher'
-                    }
-                }
-            }
+        filesMatching(['pack.mcmeta', 'fabric.mod.json', 'META-INF/mods.toml', '*.mixins.json', 'neoforge.mod.toml']) {
+            expand expandProps
         }
-        repositories {
-            if (System.getenv('PR_NUMBER')) {
-                maven {
-                    name = 'LocalMaven'
-                    url = rootProject.layout.buildDirectory.dir('repo')
-                }
-            } else if (System.getenv('SNAPSHOT_MAVEN_URL')) {
-                maven {
-                    name = 'PersonalMaven'
-                    url = uri(System.getenv('SNAPSHOT_MAVEN_URL'))
-                    credentials {
-                        username = System.getenv('MAVEN_USER')
-                        password = System.getenv('MAVEN_PASSWORD')
-                    }
-                }
-            }
-        }
+        inputs.properties(expandProps)
     }
 
-    if (System.getenv('GPG_KEY')) {
-        signing {
-            final signingKey = System.getenv('GPG_KEY')
-            final signingPassword = System.getenv('GPG_PASSWORD')
-            useInMemoryPgpKeys(signingKey, signingPassword)
-            sign publishing.publications.mavenJava
-        }
-    }
-}
+    // Disables Gradle's custom module metadata from being published to maven. The
+    // metadata includes mapped dependencies which are not reasonably consumable by
+    // other mod developers.
+    tasks.withType(GenerateModuleMetadata).configureEach {
 
-if (System.getenv('SONATYPE_USER')) {
-    nexusPublishing {
-        repositories {
-            sonatype {
-                username.set(System.getenv('SONATYPE_USER') ?: '')
-                password.set(System.getenv('SONATYPE_PASSWORD') ?: '')
-                nexusUrl.set(uri("https://s01.oss.sonatype.org/service/local/"))
-            }
-        }
+        enabled = false
     }
-}
-
-modsDotGroovy {
-    dslVersion = libs.versions.mdg.dsl.get()
-    platform 'multiloader'
-    multiloader {
-        common = project(':common')
-        forge = [project(':neoforge')]
-        fabric = [project(':fabric')]
-        quilt = []
-    }
-    source.set project(':common').sourceSets.main
 }
